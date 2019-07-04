@@ -13,7 +13,7 @@ force=90
 delay=3
 
 # Average only when difference is less than
-avg_skip=15
+avg_skip=20
 
 echo "Fan control started"
 
@@ -44,6 +44,12 @@ while true; do
 		fan_speed=$fan_max
 	fi
 	
+	if [[ $fan_speed -lt $fan_min ]]; then
+		fan_speed=$fan_min
+	elif [[ $fan_speed -gt $fan_max ]]; then
+		fan_speed=$fan_max
+	fi
+	
 	res=$(echo "$fan_speed-$fan_speed_old" | bc)
 	
 	if [[ "$res" -lt 0 ]] ; then
@@ -52,14 +58,16 @@ while true; do
 	
 	if [[ $res -lt $avg_skip ]]; then
 		echo "Method: Averaging"
-		cforce=$(echo "scale=2;$force/100" | bc)
-		old=$(echo "scale=2;$fan_speed_old*$cforce" | bc -l)
+		cforce=$(echo "scale=4;$force/100" | bc -l)
+		old=$(echo "scale=4;($fan_speed_old*1000)*$cforce" | bc -l)
 		
-		cforce=$(echo "scale=2;1-$cforce" | bc)
-		new=$(echo "scale=2;$fan_speed*$cforce" | bc -l)
+		cforce=$(echo "scale=4;1-$cforce" | bc -l)
+		new=$(echo "scale=4;($fan_speed*1000)*$cforce" | bc -l)
 		
-		fan_speed=$(echo "scale=0;$old+$new" | bc)
-		fan_speed=$(echo "($fan_speed+0.5)/1" | bc )
+		fan_speed=$(echo "scale=0;$old+$new" | bc -l)
+		fan_speed=$(echo "scale=0;$fan_speed/1000" | bc -l)
+		
+		fan_speed=$(echo "($fan_speed+0.5)/1" | bc) # Convert float to int
 	else
 		echo "Method: Jump"
 	fi
