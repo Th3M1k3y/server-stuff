@@ -44,7 +44,7 @@ while (true)
 {
 	$input = shell_exec("sensors -j");
 	
-	preg_match_all('/Core.*temp\d(_input":)\s(\d{2})/msU', $input, $matches);
+	preg_match_all('/temp\d{1,2}(_input":)\s(\d{2})/msU', $input, $matches);
 
 	$total_temp = 0;
 	
