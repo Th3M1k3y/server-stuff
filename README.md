@@ -9,3 +9,6 @@ Tested on Unraid
 
 ## fanspeed.py
 Tested on FreeNAS
+
+## bandwidth.sh
+Tested with NETGEAR GS108T, Ubiquiti UniFi USG, Ubiquiti UniFi Switch 24 POE-250W
