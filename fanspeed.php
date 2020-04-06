@@ -1,9 +1,9 @@
 <?php
 
-$temp_min = 45;
-$temp_max = 85;
+$temp_min = 60;
+$temp_max = 95;
 
-$fan_min = 20;
+$fan_min = 18;
 $fan_max = 100;
 
 $step_skip = 5;
@@ -30,11 +30,48 @@ $fan_speed_old = 64;
 
 if (file_exists($temp_speed_file))
 {
-	if (time()-filemtime($temp_speed_file) < $delay)
+	if (time()-filemtime($temp_speed_file) < ($delay+2))
 	{
-		die("Script is already running");
+		if ($mode < 2)
+		{
+			die(PHP_EOL . "Script is already running (file)" . PHP_EOL);
+		}
+		else
+		{
+			echo PHP_EOL . "Script is already running" . PHP_EOL;
+		}
 	}
-
+	
+	$input = shell_exec("ps -x | grep fanspeed.php");
+	$input = explode("\n", $input);
+	$matches = 0;
+	
+	foreach($input as $line)
+	{
+		$filepath = __FILE__;
+		$filepath = str_replace("/", "\/", $filepath);
+		
+		preg_match_all('/php\s' . $filepath . '/ms', $line, $match);		
+		
+		if (count($match[0]) > 0)
+		{
+			$matches++;
+		}
+	}
+	
+	if ($matches > 1)
+	{
+		if ($mode < 2)
+		{
+			die(PHP_EOL . "Script is already running (ps)" . PHP_EOL);
+		}
+		else
+		{
+			echo PHP_EOL . "Script is already running (ps)" . PHP_EOL;
+		}
+	}
+	
+	echo $matches;
 	$tmp_file = fopen($temp_speed_file, "r");
 	$fan_speed_old = trim(fgets($tmp_file));
 	fclose($tmp_file);
@@ -44,7 +81,7 @@ while (true)
 {
 	$input = shell_exec("sensors -j");
 	
-	preg_match_all('/temp\d{1,2}(_input":)\s(\d{2})/msU', $input, $matches);
+	preg_match_all('/Core.*temp\d(_input":)\s(\d{2})/msU', $input, $matches);
 
 	$total_temp = 0;
 	
@@ -113,6 +150,34 @@ while (true)
 	$tmp_file = fopen($temp_speed_file, "w") or die("Unable to open file!");
 	fwrite($tmp_file, $fan_speed_old);
 	fclose($tmp_file);
+	
+	$time_start = microtime(true); 
+	$input_rpm = shell_exec("timeout 2 ipmitool sensor");
+	$time_end = microtime(true);
+	
+	$ipmi_time = round($time_end - $time_start, 0);
+	
+	echo $execution_time;
+	
+	$input_rpm = explode("\n", $input_rpm);
+	
+	$input_rpm_count = 0;
+	$input_rpm_total = 0;
+	
+	foreach ($input_rpm as $key=>$value)
+	{		
+		if (substr($value, 0, 3) == "FAN")
+		{
+			$input_rpm_count++;
+			$input_rpm = explode("|", $value);			
+			$input_rpm_total += $input_rpm[1];
+		}
+	}
+	
+	if ($input_rpm_count > 0)
+	{
+		$input_rpm_total /= $input_rpm_count;
+	}
 
 	if ($mode > 0)
 	{
@@ -120,8 +185,9 @@ while (true)
 		echo "Mode: " . $force_type . PHP_EOL;
 		echo "Cores found: " . count($matches[2]) . PHP_EOL;
 		echo "Temperature: " . $avg_temp . "c" . PHP_EOL;
-		echo "Fan speed: " . $fan_speed_used . "% (" . round($fan_speed, 2) . ")" . PHP_EOL . PHP_EOL;
+		echo "Fan speed: " . $fan_speed_used . "% (" . round($fan_speed, 2) . ")" . PHP_EOL;
+		echo "Fan RPM: " . $input_rpm_total . PHP_EOL . PHP_EOL;
 	}
-	sleep($delay);
+	sleep($delay-$ipmi_time);
 }
 ?>
